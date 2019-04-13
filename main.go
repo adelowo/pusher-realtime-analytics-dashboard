@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"flag"
 	"fmt"
 	"html/template"
@@ -112,17 +113,58 @@ func fileServer(r chi.Router, path string, root http.FileSystem) {
 
 func analyticsAPI(m mongo) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		totalRequests, err := m.Count()
-		fmt.Println(totalRequests, err)
 
-		statsPerRoute, err := m.StatsPerRoute()
-		fmt.Println(statsPerRoute, err)
+		errFn := func(w http.ResponseWriter) {
+
+			json.NewEncoder(w).Encode(&struct {
+				Message   string `json:"message"`
+				TimeStamp int64  `json:"timestamp"`
+			}{
+				Message:   "An error occurred while fetching analytics data",
+				TimeStamp: time.Now().Unix(),
+			})
+		}
+
+		totalRequests, err := m.Count()
+		if err != nil {
+			errFn(w)
+		}
+
+		stats, err := m.StatsPerRoute()
+		if err != nil {
+			errFn(w)
+		}
 
 		reqsPerDay, err := m.RequestsPerDay()
-		fmt.Println(reqsPerDay, err)
+		if err != nil {
+			errFn(w)
+		}
 
 		reqsPerHour, err := m.RequestsPerHour()
-		fmt.Println(reqsPerHour, err)
+		if err != nil {
+			errFn(w)
+		}
+
+		avgResponseTime, err := m.AverageResponseTime()
+		if err != nil {
+			errFn(w)
+		}
+
+		type Data struct {
+			AverageResponseTime float64          `json:"average_response_time"`
+			StatsPerRoute       []statsPerRoute  `json:"stats_per_route"`
+			RequestsPerDay      []requestsPerDay `json:"requests_per_day"`
+			RequestsPerHour     []requestsPerDay `json:"requests_per_hour"`
+			TotalRequests       int              `json:"total_requests"`
+		}
+
+		json.NewEncoder(w).Encode(Data{
+			AverageResponseTime: avgResponseTime,
+			StatsPerRoute:       stats,
+			RequestsPerDay:      reqsPerDay,
+			RequestsPerHour:     reqsPerHour,
+			TotalRequests:       totalRequests,
+		})
 	}
 }
 
@@ -156,10 +198,6 @@ func analyticsMiddleware(m mongo, client *pusher.Client) func(next http.Handler)
 			next.ServeHTTP(w, r)
 		})
 	}
-}
-
-func displayAnalytics(w http.ResponseWriter, r *http.Request) {
-
 }
 
 func waitHandler(w http.ResponseWriter, r *http.Request) {
