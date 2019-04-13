@@ -128,26 +128,31 @@ func analyticsAPI(m mongo) http.HandlerFunc {
 		totalRequests, err := m.Count()
 		if err != nil {
 			errFn(w)
+			return
 		}
 
 		stats, err := m.StatsPerRoute()
 		if err != nil {
 			errFn(w)
+			return
 		}
 
 		reqsPerDay, err := m.RequestsPerDay()
 		if err != nil {
 			errFn(w)
+			return
 		}
 
 		reqsPerHour, err := m.RequestsPerHour()
 		if err != nil {
 			errFn(w)
+			return
 		}
 
 		avgResponseTime, err := m.AverageResponseTime()
 		if err != nil {
 			errFn(w)
+			return
 		}
 
 		type Data struct {
