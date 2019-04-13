@@ -11,11 +11,11 @@ const (
 )
 
 type requestAnalytics struct {
-	URL         string
-	Method      string
-	RequestTime int64
-	Day         time.Weekday
-	Hour        int
+	URL         string       `json:"url"`
+	Method      string       `json:"method"`
+	RequestTime int64        `json:"request_time"`
+	Day         time.Weekday `json:"day"`
+	Hour        int          `json:"hour"`
 }
 
 type mongo struct {

@@ -5,10 +5,13 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
 	"strconv"
 	"time"
 
 	"github.com/go-chi/chi"
+	"github.com/joho/godotenv"
+	"github.com/pusher/pusher-http-go"
 )
 
 const defaultSleepTime = time.Second * 2
@@ -18,6 +21,32 @@ func main() {
 	mongoDSN := flag.String("mongo.dsn", "localhost:27017", "DSN for mongoDB server")
 
 	flag.Parse()
+
+	if err := godotenv.Load(); err != nil {
+		log.Fatal("Error loading .env file")
+	}
+
+	appID := os.Getenv("PUSHER_APP_ID")
+	appKey := os.Getenv("PUSHER_APP_KEY")
+	appSecret := os.Getenv("PUSHER_APP_SECRET")
+	appCluster := os.Getenv("PUSHER_APP_CLUSTER")
+	appIsSecure := os.Getenv("PUSHER_APP_SECURE")
+
+	var isSecure bool
+	if appIsSecure == "1" {
+		isSecure = true
+	}
+
+	client := &pusher.Client{
+		AppId:   appID,
+		Key:     appKey,
+		Secret:  appSecret,
+		Cluster: appCluster,
+		Secure:  isSecure,
+		HttpClient: &http.Client{
+			Timeout: time.Second * 10,
+		},
+	}
 
 	mux := chi.NewRouter()
 
@@ -29,21 +58,24 @@ func main() {
 
 	log.Println("Successfully connected to MongoDB")
 
-	mux.Use(analyticsMiddleware(m))
+	mux.Use(analyticsMiddleware(m, client))
 	mux.Get("/analytics", displayAnalytics)
 	mux.Get("/wait/{seconds}", waitHandler)
 
 	log.Fatal(http.ListenAndServe(fmt.Sprintf(":%d", *httpPort), mux))
 }
 
-func analyticsMiddleware(m mongo) func(next http.Handler) http.Handler {
+func analyticsMiddleware(m mongo, client *pusher.Client) func(next http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 
 			startTime := time.Now()
 
 			defer func() {
-				if r.URL.String() != "/analytics" {
+				switch r.URL.String() {
+				case "/analytics", "/api/analytics", "/favicon.ico", "/serviceworker.js":
+
+				default:
 					data := requestAnalytics{
 						URL:         r.URL.String(),
 						Method:      r.Method,
@@ -55,6 +87,8 @@ func analyticsMiddleware(m mongo) func(next http.Handler) http.Handler {
 					if err := m.Write(data); err != nil {
 						log.Println(err)
 					}
+
+					client.Trigger("analytics-dashboard", "data", data)
 				}
 			}()
 
