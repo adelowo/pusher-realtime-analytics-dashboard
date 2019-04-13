@@ -3,10 +3,14 @@ package main
 import (
 	"flag"
 	"fmt"
+	"html/template"
 	"log"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strconv"
+	"strings"
+	"sync"
 	"time"
 
 	"github.com/go-chi/chi"
@@ -59,11 +63,51 @@ func main() {
 	log.Println("Successfully connected to MongoDB")
 
 	mux.Use(analyticsMiddleware(m, client))
-	mux.Get("/analytics", displayAnalytics)
+
+	var once sync.Once
+	var t *template.Template
+
+	workDir, _ := os.Getwd()
+	filesDir := filepath.Join(workDir, "static")
+	fileServer(mux, "/static", http.Dir(filesDir))
+
+	mux.Get("/", func(w http.ResponseWriter, r *http.Request) {
+
+		once.Do(func() {
+			tem, err := template.ParseFiles("index.html")
+			if err != nil {
+				log.Fatal(err)
+			}
+
+			t = tem.Lookup("index.html")
+		})
+
+		t.Execute(w, nil)
+	})
+
 	mux.Get("/api/analytics", analyticsAPI(m))
 	mux.Get("/wait/{seconds}", waitHandler)
 
 	log.Fatal(http.ListenAndServe(fmt.Sprintf(":%d", *httpPort), mux))
+}
+
+func fileServer(r chi.Router, path string, root http.FileSystem) {
+	if strings.ContainsAny(path, "{}*") {
+		panic("FileServer does not permit URL parameters.")
+	}
+
+	fs := http.StripPrefix(path, http.FileServer(root))
+
+	if path != "/" && path[len(path)-1] != '/' {
+		r.Get(path, http.RedirectHandler(path+"/", 301).ServeHTTP)
+		path += "/"
+	}
+
+	path += "*"
+
+	r.Get(path, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		fs.ServeHTTP(w, r)
+	}))
 }
 
 func analyticsAPI(m mongo) http.HandlerFunc {
