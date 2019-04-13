@@ -3,6 +3,7 @@ package main
 import (
 	"time"
 
+	"github.com/globalsign/mgo/bson"
 	"gopkg.in/mgo.v2"
 )
 
@@ -29,6 +30,84 @@ func (m mongo) Close() error {
 
 func (m mongo) Write(r requestAnalytics) error {
 	return m.sess.DB("pusher_tutorial").C(collectionName).Insert(r)
+}
+
+func (m mongo) Count() (int, error) {
+	return m.sess.DB("pusher_tutorial").C(collectionName).Count()
+}
+
+type statsPerRoute struct {
+	ID struct {
+		Method string `bson:"method"`
+		URL    string `bson:"url"`
+	} `bson:"_id"`
+	NumberOfRequests int `bson:"numberOfRequests"`
+}
+
+func (m mongo) StatsPerRoute() ([]statsPerRoute, error) {
+
+	var ret []statsPerRoute
+
+	var baseMatch = bson.M{
+		"$group": bson.M{
+			"_id":              bson.M{"url": "$url", "method": "$method"},
+			"responseTime":     bson.M{"$avg": "$requesttime"},
+			"numberOfRequests": bson.M{"$sum": 1},
+		},
+	}
+
+	err := m.sess.DB("pusher_tutorial").C(collectionName).
+		Pipe([]bson.M{baseMatch}).All(&ret)
+	return ret, err
+}
+
+type requestsPerDay struct {
+	ID               int `bson:"_id"`
+	NumberOfRequests int `bson:"numberOfRequests"`
+}
+
+func (m mongo) RequestsPerHour() ([]requestsPerDay, error) {
+
+	var ret []requestsPerDay
+
+	var baseMatch = bson.M{
+		"$group": bson.M{
+			"_id":              "$hour",
+			"numberOfRequests": bson.M{"$sum": 1},
+		},
+	}
+
+	var sort = bson.M{
+		"$sort": bson.M{
+			"numberOfRequests": 1,
+		},
+	}
+
+	err := m.sess.DB("pusher_tutorial").C(collectionName).
+		Pipe([]bson.M{baseMatch, sort}).All(&ret)
+	return ret, err
+}
+
+func (m mongo) RequestsPerDay() ([]requestsPerDay, error) {
+
+	var ret []requestsPerDay
+
+	var baseMatch = bson.M{
+		"$group": bson.M{
+			"_id":              "$day",
+			"numberOfRequests": bson.M{"$sum": 1},
+		},
+	}
+
+	var sort = bson.M{
+		"$sort": bson.M{
+			"numberOfRequests": 1,
+		},
+	}
+
+	err := m.sess.DB("pusher_tutorial").C(collectionName).
+		Pipe([]bson.M{baseMatch, sort}).All(&ret)
+	return ret, err
 }
 
 func newMongo(addr string) (mongo, error) {

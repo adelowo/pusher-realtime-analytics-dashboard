@@ -60,9 +60,26 @@ func main() {
 
 	mux.Use(analyticsMiddleware(m, client))
 	mux.Get("/analytics", displayAnalytics)
+	mux.Get("/api/analytics", analyticsAPI(m))
 	mux.Get("/wait/{seconds}", waitHandler)
 
 	log.Fatal(http.ListenAndServe(fmt.Sprintf(":%d", *httpPort), mux))
+}
+
+func analyticsAPI(m mongo) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		totalRequests, err := m.Count()
+		fmt.Println(totalRequests, err)
+
+		statsPerRoute, err := m.StatsPerRoute()
+		fmt.Println(statsPerRoute, err)
+
+		reqsPerDay, err := m.RequestsPerDay()
+		fmt.Println(reqsPerDay, err)
+
+		reqsPerHour, err := m.RequestsPerHour()
+		fmt.Println(reqsPerHour, err)
+	}
 }
 
 func analyticsMiddleware(m mongo, client *pusher.Client) func(next http.Handler) http.Handler {
