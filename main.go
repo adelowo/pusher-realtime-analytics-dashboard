@@ -163,6 +163,7 @@ func analyticsAPI(m mongo) http.HandlerFunc {
 			TotalRequests       int              `json:"total_requests"`
 		}
 
+		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(Data{
 			AverageResponseTime: avgResponseTime,
 			StatsPerRoute:       stats,
