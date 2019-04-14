@@ -114,7 +114,9 @@ func fileServer(r chi.Router, path string, root http.FileSystem) {
 func analyticsAPI(m mongo) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 
-		errFn := func(w http.ResponseWriter) {
+		data, err := m.getAggregatedAnalytics()
+		if err != nil {
+			log.Println(err)
 
 			json.NewEncoder(w).Encode(&struct {
 				Message   string `json:"message"`
@@ -123,54 +125,12 @@ func analyticsAPI(m mongo) http.HandlerFunc {
 				Message:   "An error occurred while fetching analytics data",
 				TimeStamp: time.Now().Unix(),
 			})
-		}
 
-		totalRequests, err := m.Count()
-		if err != nil {
-			errFn(w)
 			return
-		}
-
-		stats, err := m.StatsPerRoute()
-		if err != nil {
-			errFn(w)
-			return
-		}
-
-		reqsPerDay, err := m.RequestsPerDay()
-		if err != nil {
-			errFn(w)
-			return
-		}
-
-		reqsPerHour, err := m.RequestsPerHour()
-		if err != nil {
-			errFn(w)
-			return
-		}
-
-		avgResponseTime, err := m.AverageResponseTime()
-		if err != nil {
-			errFn(w)
-			return
-		}
-
-		type Data struct {
-			AverageResponseTime float64          `json:"average_response_time"`
-			StatsPerRoute       []statsPerRoute  `json:"stats_per_route"`
-			RequestsPerDay      []requestsPerDay `json:"requests_per_day"`
-			RequestsPerHour     []requestsPerDay `json:"requests_per_hour"`
-			TotalRequests       int              `json:"total_requests"`
 		}
 
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(Data{
-			AverageResponseTime: avgResponseTime,
-			StatsPerRoute:       stats,
-			RequestsPerDay:      reqsPerDay,
-			RequestsPerHour:     reqsPerHour,
-			TotalRequests:       totalRequests,
-		})
+		json.NewEncoder(w).Encode(data)
 	}
 }
 
@@ -196,9 +156,11 @@ func analyticsMiddleware(m mongo, client *pusher.Client) func(next http.Handler)
 						log.Println(err)
 					}
 
-					client.Trigger("analytics-dashboard", "data", data)
+					aggregatedData, err := m.getAggregatedAnalytics()
+					if err == nil {
+						client.Trigger("analytics-dashboard", "data", aggregatedData)
+					}
 				}
-
 			}()
 
 			next.ServeHTTP(w, r)

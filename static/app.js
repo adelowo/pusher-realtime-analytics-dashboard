@@ -94,3 +94,16 @@ axios
   .catch(err => {
     console.error(err);
   });
+
+const APP_KEY = 'PUSHER_APP_KEY';
+const APP_CLUSTER = 'PUSHER_CLUSTER';
+
+const pusher = new Pusher(APP_KEY, {
+  cluster: APP_CLUSTER,
+});
+
+const channel = pusher.subscribe('analytics-dashboard');
+
+channel.bind('data', data => {
+  writeData(data);
+});

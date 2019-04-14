@@ -140,3 +140,49 @@ func newMongo(addr string) (mongo, error) {
 		sess: sess,
 	}, nil
 }
+
+type Data struct {
+	AverageResponseTime float64          `json:"average_response_time"`
+	StatsPerRoute       []statsPerRoute  `json:"stats_per_route"`
+	RequestsPerDay      []requestsPerDay `json:"requests_per_day"`
+	RequestsPerHour     []requestsPerDay `json:"requests_per_hour"`
+	TotalRequests       int              `json:"total_requests"`
+}
+
+func (m mongo) getAggregatedAnalytics() (Data, error) {
+
+	var data Data
+
+	totalRequests, err := m.Count()
+	if err != nil {
+		return data, err
+	}
+
+	stats, err := m.StatsPerRoute()
+	if err != nil {
+		return data, err
+	}
+
+	reqsPerDay, err := m.RequestsPerDay()
+	if err != nil {
+		return data, err
+	}
+
+	reqsPerHour, err := m.RequestsPerHour()
+	if err != nil {
+		return data, err
+	}
+
+	avgResponseTime, err := m.AverageResponseTime()
+	if err != nil {
+		return data, err
+	}
+
+	return Data{
+		AverageResponseTime: avgResponseTime,
+		StatsPerRoute:       stats,
+		RequestsPerDay:      reqsPerDay,
+		RequestsPerHour:     reqsPerHour,
+		TotalRequests:       totalRequests,
+	}, nil
+}
