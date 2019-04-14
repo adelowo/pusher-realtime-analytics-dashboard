@@ -75,7 +75,7 @@ func main() {
 	mux.Get("/", func(w http.ResponseWriter, r *http.Request) {
 
 		once.Do(func() {
-			tem, err := template.ParseFiles("index.html")
+			tem, err := template.ParseFiles("static/index.html")
 			if err != nil {
 				log.Fatal(err)
 			}
@@ -181,10 +181,9 @@ func analyticsMiddleware(m mongo, client *pusher.Client) func(next http.Handler)
 			startTime := time.Now()
 
 			defer func() {
-				switch r.URL.String() {
-				case "/analytics", "/api/analytics", "/favicon.ico", "/serviceworker.js":
 
-				default:
+				if strings.HasPrefix(r.URL.String(), "/wait") {
+
 					data := requestAnalytics{
 						URL:         r.URL.String(),
 						Method:      r.Method,
@@ -199,6 +198,7 @@ func analyticsMiddleware(m mongo, client *pusher.Client) func(next http.Handler)
 
 					client.Trigger("analytics-dashboard", "data", data)
 				}
+
 			}()
 
 			next.ServeHTTP(w, r)
