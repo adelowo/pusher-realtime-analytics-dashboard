@@ -148,7 +148,7 @@ func analyticsMiddleware(m mongo, client *pusher.Client) func(next http.Handler)
 						URL:         r.URL.String(),
 						Method:      r.Method,
 						RequestTime: time.Now().Unix() - startTime.Unix(),
-						Day:         startTime.Weekday(),
+						Day:         startTime.Weekday().String(),
 						Hour:        startTime.Hour(),
 					}
 

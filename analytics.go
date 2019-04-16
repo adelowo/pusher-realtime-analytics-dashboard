@@ -1,8 +1,6 @@
 package main
 
 import (
-	"time"
-
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 )
@@ -12,11 +10,11 @@ const (
 )
 
 type requestAnalytics struct {
-	URL         string       `json:"url"`
-	Method      string       `json:"method"`
-	RequestTime int64        `json:"request_time"`
-	Day         time.Weekday `json:"day"`
-	Hour        int          `json:"hour"`
+	URL         string `json:"url"`
+	Method      string `json:"method"`
+	RequestTime int64  `json:"request_time"`
+	Day         string `json:"day"`
+	Hour        int    `json:"hour"`
 }
 
 type mongo struct {
@@ -61,7 +59,12 @@ func (m mongo) AverageResponseTime() (float64, error) {
 
 	err := m.sess.DB("pusher_tutorial").C(collectionName).
 		Pipe([]bson.M{baseMatch}).All(&ret)
-	return ret[0].AverageResponseTime, err
+
+	if len(ret) > 0 {
+		return ret[0].AverageResponseTime, err
+	}
+
+	return 0, nil
 }
 
 func (m mongo) StatsPerRoute() ([]statsPerRoute, error) {
@@ -82,8 +85,8 @@ func (m mongo) StatsPerRoute() ([]statsPerRoute, error) {
 }
 
 type requestsPerDay struct {
-	ID               int `bson:"_id" json:"id"`
-	NumberOfRequests int `bson:"numberOfRequests" json:"number_of_requests"`
+	ID               string `bson:"_id" json:"id"`
+	NumberOfRequests int    `bson:"numberOfRequests" json:"number_of_requests"`
 }
 
 func (m mongo) RequestsPerHour() ([]requestsPerDay, error) {
