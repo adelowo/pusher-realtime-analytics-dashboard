@@ -2,6 +2,8 @@
 
 The goal is to monitor requests and use the data obtained to display realtime and relevant analytics to an admin user.
 
+https://pusher.com/tutorials/live-analytics-go
+
 
 #### Getting started
 
